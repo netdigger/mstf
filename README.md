@@ -1,5 +1,6 @@
 ​# mstf
 Microservices test framework
+mstf only support json in PUT, POST and DELETE request and only parse json in all response.
 
 Config file
 
@@ -17,9 +18,17 @@ format is json format.
     "request:{
       "url":"/ms1",
       "method":"GET",
+      "header":[{
+        "name":"XXXX",
+        "value":"XXXX",
+        "from":{
+          "case_name":"XXXX"
+          "param_name:"XXXX"
+        }
+      },{...},{...}
+      }],
       "params":[{
         "name":"XXXX",
-        "position":"header",
         "value":"XXXX",
         "from":{
           "case_name":"XXXX"
@@ -28,7 +37,8 @@ format is json format.
       },{...},{...}]
     },
     "response":{
-      "params":[{
+      "status":200,
+      "body":[{
         "name":"XXXXX"
         "position":"body"
         "value":"XXXX"
