@@ -1,12 +1,18 @@
-# mstf
+​# mstf
 Microservices test framework
 
 Config file
+
 format is json format.
+
 {
+
   "protocols":"http",
+  
   "url":"127.0.0.1",
+  
   "case":[{
+  
     "name":"ms1",
     "request:{
       "url":"/ms1",
@@ -30,3 +36,4 @@ format is json format.
     }
   },{...},{...}]
 }
+
