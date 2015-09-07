@@ -2,6 +2,8 @@
 *.o
 *.a
 *.so
+config.json
+*.swp
 
 # Folders
 _obj
