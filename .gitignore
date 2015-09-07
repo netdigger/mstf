@@ -4,6 +4,7 @@
 *.so
 config.json
 *.swp
+mtfs
 
 # Folders
 _obj
