@@ -7,12 +7,14 @@ import (
 	"log"
 	"net/http"
 	"reflect"
+	"strconv"
+	"strings"
 )
 
 type Response struct {
-	Status  int               `json:"status"`
-	Headers map[string]*Param `json:"header"`
-	Bodys   map[string]*Param `json:"body"`
+	Status  int                  `json:"status"`
+	Headers map[string]*ResParam `json:"header"`
+	Bodys   map[string]*ResParam `json:"body"`
 }
 
 func (p *Response) Check(httpResp *http.Response) (*Response, error) {
@@ -21,11 +23,27 @@ func (p *Response) Check(httpResp *http.Response) (*Response, error) {
 		return nil, err
 	}
 
-	log.Println(resp, p)
 	err := p.compare(resp)
-	log.Println(resp, p)
-
 	return resp, err
+}
+
+func (p *Response) GetParam(names ...string) (*ResParam, error) {
+	var params map[string]*ResParam
+	switch names[0] {
+	case "body":
+		params = p.Bodys
+	case "header":
+		params = p.Headers
+	default:
+		return nil, errors.New("unkown struct field name of response")
+	}
+
+	param, has := params[strings.Join(names[1:], ".")]
+	if !has {
+		return nil, errors.New("unknown name of response parameters")
+	}
+
+	return param, nil
 }
 
 func (p *Response) compare(resp *Response) error {
@@ -36,8 +54,8 @@ func (p *Response) compare(resp *Response) error {
 			return errors.New("have't body parameter:" + k)
 		}
 		respV.Revision(v.Type)
-		log.Println(k, *v, *respV)
-		if !v.Uncheck && !reflect.DeepEqual(v, respV) {
+		if !v.Equal(respV) {
+			log.Println(k, *v, *respV)
 			return errors.New("body pararmeter:" + k + " aren't equal")
 		}
 	}
@@ -48,7 +66,7 @@ func (p *Response) readBody(resp *http.Response) error {
 	defer resp.Body.Close()
 
 	if p.Bodys == nil {
-		p.Bodys = make(map[string]*Param, 0)
+		p.Bodys = make(map[string]*ResParam, 0)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
@@ -67,22 +85,25 @@ func (p *Response) readBody(resp *http.Response) error {
 		return err
 	}
 
-	return p.parseBodys("", bodys)
+	return p.parseBodys("", reflect.ValueOf(bodys))
 }
 
-func (p *Response) parseBodys(extName string, bodys interface{}) error {
-	t := reflect.TypeOf(bodys)
-	switch t.Kind() {
-	case reflect.Map:
-		return p.parseMap(extName, bodys)
-	case reflect.Slice:
-		return p.parseSlice(extName, bodys)
+func (p *Response) parseBodys(extName string, v reflect.Value) error {
+	kind := v.Kind()
+	if kind == reflect.Interface || kind == reflect.Ptr {
+		v = v.Elem()
 	}
-	return errors.New("unsupport data type:" + t.Kind().String())
+
+	switch v.Kind() {
+	case reflect.Map:
+		return p.parseMap(extName, v)
+	case reflect.Slice:
+		return p.parseSlice(extName, v)
+	}
+	return errors.New("unsupport data type:" + v.Kind().String())
 }
 
-func (p *Response) parseMap(extName string, bodys interface{}) error {
-	value := reflect.ValueOf(bodys)
+func (p *Response) parseMap(extName string, value reflect.Value) error {
 	keys := value.MapKeys()
 
 	for _, key := range keys {
@@ -97,7 +118,7 @@ func (p *Response) parseMap(extName string, bodys interface{}) error {
 		case reflect.Float64, reflect.String:
 			p.Bodys[name] = p.generateParam(v)
 		default:
-			if err := p.parseBodys(name, v.Interface()); err != nil {
+			if err := p.parseBodys(name, v); err != nil {
 				return err
 			}
 		}
@@ -105,13 +126,28 @@ func (p *Response) parseMap(extName string, bodys interface{}) error {
 	return nil
 }
 
-func (p *Response) parseSlice(extName string, bodys interface{}) error {
-	return errors.New("unsupport slice")
+func (p *Response) parseSlice(extName string, v reflect.Value) error {
+	for i := 0; i < v.Len(); i++ {
+		name := extName + "[" + strconv.FormatInt(int64(i), 10) + "]"
+		item := v.Index(i)
+		switch item.Kind() {
+		case reflect.Float64, reflect.String:
+			p.Bodys[name] = p.generateParam(v)
+		default:
+			if err := p.parseBodys(name, item); err != nil {
+				log.Println(name, err)
+				return err
+			}
+		}
+	}
+	return nil
 }
 
-func (*Response) generateParam(value reflect.Value) *Param {
-	return &Param{
-		Type:  value.Kind().String(),
-		Value: value.Interface(),
+func (*Response) generateParam(value reflect.Value) *ResParam {
+	return &ResParam{
+		Param: Param{
+			Type:  value.Kind().String(),
+			Value: value.Interface(),
+		},
 	}
 }

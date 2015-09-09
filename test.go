@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"io"
 	"log"
 	"net/http"
 )
@@ -57,10 +59,22 @@ func (p *Test) doError(results Results, err error) {
 }
 
 func (p *Test) newHttpRequest(results Results) (*http.Request, error) {
-	reader, err := p.Request.GetBody(results)
+	var reader io.Reader
+	var err error
+	url := p.Url
+	switch p.Method {
+	case "POST":
+		reader, err = p.Request.GetBody(results)
+	case "GET":
+		url, err = p.Request.GetUrl(p.Url, results)
+	case "PUT":
+		reader, err = p.Request.GetBody(results)
+	default:
+		err = errors.New("unsupport method:" + p.Method)
+	}
 	if err != nil {
 		return nil, err
 	}
 
-	return http.NewRequest(p.Method, p.Url, reader)
+	return http.NewRequest(p.Method, url, reader)
 }

@@ -7,8 +7,8 @@ import (
 )
 
 type Config struct {
-	Url   string `json:"url"`
-	Tests []Test `json:"tests"`
+	Url   string  `json:"url"`
+	Tests []*Test `json:"tests"`
 }
 
 func ReadConfig(path string) (*Config, error) {
@@ -24,13 +24,13 @@ func ReadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 
-	for index, _ := range config.Tests {
-		config.Tests[index].Url = config.Url + config.Tests[index].Url
+	for _, v := range config.Tests {
+		v.Url = config.Url + v.Url
 	}
 
 	return &config, nil
 }
 
-func (p *Config) GetTests() []Test {
+func (p *Config) GetTests() []*Test {
 	return p.Tests
 }
